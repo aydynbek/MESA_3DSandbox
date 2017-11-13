@@ -1,0 +1,2171 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Media3D;
+
+namespace _3DSandbox
+{
+    public enum EdgesOfCube { AB, BC, CD, DA, EF, FG, GH, HE, AE, BF, CG, DH}
+    public enum ConnectOfCube { AB, BC, CD, DA, EF, FG, GH, HE, AE, BF, CG, DH,
+                                    ABC, BCD, CDA, DAB, EFG, FGH, GHE, HEF,
+                                    LEFT, BACK, RIGHT, FRONT, TOP, BOTTOM,
+                                    NONE }
+    
+    class Kinect3DOperations
+    {
+        ConnectOfCube[,,] connectionToNeighboringCubes = new ConnectOfCube[3, 3, 3] {
+        {{ConnectOfCube.EFG, ConnectOfCube.EF, ConnectOfCube.HEF},
+            {ConnectOfCube.BF, ConnectOfCube.LEFT, ConnectOfCube.AE },
+            {ConnectOfCube.ABC, ConnectOfCube.AB, ConnectOfCube.DAB}},
+        {{ConnectOfCube.FG, ConnectOfCube.BOTTOM, ConnectOfCube.HE},
+            {ConnectOfCube.BACK, ConnectOfCube.NONE, ConnectOfCube.FRONT},
+            {ConnectOfCube.BC, ConnectOfCube.TOP, ConnectOfCube.DA}},
+        {{ConnectOfCube.FGH, ConnectOfCube.GH, ConnectOfCube.GHE},
+            {ConnectOfCube.CG, ConnectOfCube.RIGHT, ConnectOfCube.DH},
+            {ConnectOfCube.BCD, ConnectOfCube.CD, ConnectOfCube.CDA}}
+        };
+
+        EdgesOfCube[] edgeNeighborEdges = { EdgesOfCube.CD, EdgesOfCube.DA, EdgesOfCube.AB, EdgesOfCube.BC,
+                                            EdgesOfCube.GH, EdgesOfCube.HE, EdgesOfCube.EF, EdgesOfCube.FG,
+                                            EdgesOfCube.CG, EdgesOfCube.DH, EdgesOfCube.AE, EdgesOfCube.BF};
+
+        public DepthMasterControl depthMasterControl;
+        public RenderViewFunctionalities renderViewFunctionalities;
+        public TextBlock informationTextBlock;
+
+        public double cubeSize = 1.75;
+        public List<string> vertices = new List<string>();
+        public List<string> triangles = new List<string>();
+
+        public Dictionary<string, Tuple<Dictionary<string, ConnectOfCube>,
+            Dictionary<int, Tuple<EdgesOfCube, double, Point3D>>>>
+            verticesAtFacesGrid = 
+            new Dictionary<string, Tuple<Dictionary<string, ConnectOfCube>,
+                Dictionary<int, Tuple<EdgesOfCube, double, Point3D>>>>();
+
+        public Dictionary<string, Dictionary<int, Point3D[]>> cubeTriangles = 
+            new Dictionary<string, Dictionary<int, Point3D[]>>();
+
+        public Dictionary<string, Dictionary<EdgesOfCube, int>> edgesOfCubeVerticesPresent = 
+            new Dictionary<string, Dictionary<EdgesOfCube, int>>();
+
+        public Dictionary<string, List<int>> verticesOfCubes =
+            new Dictionary<string, List<int>>();
+
+        public Dictionary<int, Point3D> planeVertices = new Dictionary<int, Point3D>();
+
+        public Dictionary<string, Dictionary<int, Point3D>> verticesGrid = 
+            new Dictionary<string, Dictionary<int, Point3D>>();
+
+        public Dictionary<string, Dictionary<int, Point3D>> planeVerticesGrid = 
+            new Dictionary<string, Dictionary<int, Point3D>>();
+        
+        public Dictionary<int, Point3D[]> planeTrianglesList = new Dictionary<int, Point3D[]>();
+        public Dictionary<int, int[]> planeTrianglesIndicesList = new Dictionary<int, int[]>();
+        public Dictionary<string, Dictionary<int, int[]>> cubeTrianglesIndicesList = 
+            new Dictionary<string, Dictionary<int, int[]>>();
+        
+        public Dictionary<int, Point3D> findCubeCrossSections2(string key, ref int newVertexId, double[] cubeLimit,
+            double xCoeff, double yCoeff, double zCoeff, double constant)
+        {
+            Dictionary<int, Point3D> intersections = new Dictionary<int, Point3D>();
+            int vertexId = 0;
+            double x, y, z;
+            double[] cubeLimits = new double[6];
+            double xLow = cubeLimit[0] * cubeSize;
+            double xHigh = cubeLimit[1] * cubeSize;
+            double yLow = cubeLimit[2] * cubeSize;
+            double yHigh = cubeLimit[3] * cubeSize;
+            double zLow = cubeLimit[4] * cubeSize;
+            double zHigh = cubeLimit[5] * cubeSize;
+            Point3D intersectedPoint;
+
+            List<int> vertices = new List<int>();
+            Dictionary<EdgesOfCube, int> edgesOfCube = new Dictionary<EdgesOfCube, int>();
+
+            Dictionary<int, Tuple<EdgesOfCube, double, Point3D>> cubeVertices =
+                new Dictionary<int, Tuple<EdgesOfCube, double, Point3D>>();
+
+            // Side AB: z axis
+            x = xLow; y = yHigh; z = (constant - (x * xCoeff) - (y * yCoeff)) / zCoeff;
+            if (z.CompareTo(zLow) > 0 && z.CompareTo(zHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.AB, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.AB, z, intersectedPoint));
+            }
+            // Side BC: x axis
+            z = zLow; y = yHigh; x = (constant - (z * zCoeff) - (y * yCoeff)) / xCoeff;
+            if (x.CompareTo(xLow) > 0 && x.CompareTo(xHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.BC, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.BC, x, intersectedPoint));
+            }
+            // Side CD: z axis
+            x = xHigh; y = yHigh; z = (constant - (x * xCoeff) - (y * yCoeff)) / zCoeff;
+            if (z.CompareTo(zLow) > 0 && z.CompareTo(zHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.CD, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.CD, z, intersectedPoint));
+            }
+            // Side DA: x axis
+            z = zHigh; y = yHigh; x = (constant - (z * zCoeff) - (y * yCoeff)) / xCoeff;
+            if (x.CompareTo(xLow) > 0 && x.CompareTo(xHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.DA, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.DA, x, intersectedPoint));
+            }
+
+
+            // Side EF: z axis
+            x = xLow; y = yLow; z = (constant - (x * xCoeff) - (y * yCoeff)) / zCoeff;
+            if (z.CompareTo(zLow) > 0 && z.CompareTo(zHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.EF, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.EF, z, intersectedPoint));
+            }
+            // Side FG: x axis
+            z = zLow; y = yLow; x = (constant - (z * zCoeff) - (y * yCoeff)) / xCoeff;
+            if (x.CompareTo(xLow) > 0 && x.CompareTo(xHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.FG, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.FG, x, intersectedPoint));
+            }
+            // Side GH: z axis
+            x = xHigh; y = yLow; z = (constant - (x * xCoeff) - (y * yCoeff)) / zCoeff;
+            if (z.CompareTo(zLow) > 0 && z.CompareTo(zHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.GH, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.GH, z, intersectedPoint));
+            }
+            // Side HE: x axis
+            z = zHigh; y = yLow; x = (constant - (z * zCoeff) - (y * yCoeff)) / xCoeff;
+            if (x.CompareTo(xLow) > 0 && x.CompareTo(xHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.HE, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.HE, x, intersectedPoint));
+            }
+
+
+            // Side AE: y axis
+            x = xLow; z = zHigh; y = (constant - (z * zCoeff) - (x * xCoeff)) / yCoeff;
+            if (y.CompareTo(yLow) > 0 && y.CompareTo(yHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.AE, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.AE, y, intersectedPoint));
+            }
+            // Side BF: y axis
+            x = xLow; z = zLow; y = (constant - (z * zCoeff) - (x * xCoeff)) / yCoeff;
+            if (y.CompareTo(yLow) > 0 && y.CompareTo(yHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.BF, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.BF, y, intersectedPoint));
+            }
+            // Side CG: y axis
+            x = xHigh; z = zLow; y = (constant - (z * zCoeff) - (x * xCoeff)) / yCoeff;
+            if (y.CompareTo(yLow) > 0 && y.CompareTo(yHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.CG, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.CG, y, intersectedPoint));
+            }
+            // Side DH: y axis
+            x = xHigh; z = zHigh; y = (constant - (z * zCoeff) - (x * xCoeff)) / yCoeff;
+            if (y.CompareTo(yLow) > 0 && y.CompareTo(yHigh) < 0)
+            {
+                intersectedPoint = new Point3D(x, y, z);
+                intersections.Add(newVertexId, intersectedPoint);
+                vertices.Add(newVertexId);
+                planeVertices.Add(newVertexId, intersectedPoint);
+                edgesOfCube.Add(EdgesOfCube.DH, newVertexId);
+                cubeVertices.Add(newVertexId++, new Tuple<EdgesOfCube, double, Point3D>(EdgesOfCube.DH, y, intersectedPoint));
+            }
+
+            Dictionary<string, ConnectOfCube> listOfNeighbors = new Dictionary<string, ConnectOfCube>();
+            verticesAtFacesGrid.Add(key, new Tuple<Dictionary<string, ConnectOfCube>,
+                Dictionary<int, Tuple<EdgesOfCube, double, Point3D>>>(listOfNeighbors, cubeVertices));
+
+            edgesOfCubeVerticesPresent.Add(key, edgesOfCube);
+
+            verticesOfCubes.Add(key, vertices);
+
+            return intersections;
+        }
+
+
+        public Point3D[] findCubeCrossSections(double[] cubeLimit, double xCoeff, double yCoeff,
+                                            double zCoeff, double constant)
+        {
+            List<Point3D> intersections = new List<Point3D>();
+            double x, y, z;
+            double[] cubeLimits = new double[6];
+            cubeLimits[0] = cubeLimit[0] * cubeSize;
+            cubeLimits[1] = cubeLimit[1] * cubeSize;
+            cubeLimits[2] = cubeLimit[2] * cubeSize;
+            cubeLimits[3] = cubeLimit[3] * cubeSize;
+            cubeLimits[4] = cubeLimit[4] * cubeSize;
+            cubeLimits[5] = cubeLimit[5] * cubeSize;
+
+            // Side AB: z axis
+            x = cubeLimits[0];
+            y = cubeLimits[3];
+            z = (constant - (x * xCoeff) - (y * yCoeff)) / zCoeff;
+            if (z > cubeLimits[4] && z < cubeLimits[5])
+            {
+                intersections.Add(new Point3D(x, y, z));
+            }
+
+            // Side BC: x axis
+            z = cubeLimits[4];
+            y = cubeLimits[3];
+            x = (constant - (z * zCoeff) - (y * yCoeff)) / xCoeff;
+            if (x > cubeLimits[0] && x < cubeLimits[1])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+            // Side CD: z axis
+            x = cubeLimits[1];
+            y = cubeLimits[3];
+            z = (constant - (x * xCoeff) - (y * yCoeff)) / zCoeff;
+            if (z > cubeLimits[4] && z < cubeLimits[5])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+            // Side DA: x axis
+            z = cubeLimits[5];
+            y = cubeLimits[3];
+            x = (constant - (z * zCoeff) - (y * yCoeff)) / xCoeff;
+            if (x > cubeLimits[0] && x < cubeLimits[1])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+
+
+            // Side EF: z axis
+            x = cubeLimits[0];
+            y = cubeLimits[2];
+            z = (constant - (x * xCoeff) - (y * yCoeff)) / zCoeff;
+            if (z > cubeLimits[4] && z < cubeLimits[5])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+            // Side FG: x axis
+            z = cubeLimits[4];
+            y = cubeLimits[2];
+            x = (constant - (z * zCoeff) - (y * yCoeff)) / xCoeff;
+            if (x > cubeLimits[0] && x < cubeLimits[1])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+            // Side GH: z axis
+            x = cubeLimits[1];
+            y = cubeLimits[2];
+            z = (constant - (x * xCoeff) - (y * yCoeff)) / zCoeff;
+            if (z > cubeLimits[4] && z < cubeLimits[5])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+            // Side HE: x axis
+            z = cubeLimits[5];
+            y = cubeLimits[2];
+            x = (constant - (z * zCoeff) - (y * yCoeff)) / xCoeff;
+            if (x > cubeLimits[0] && x < cubeLimits[1])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+
+
+            // Side AE: y axis
+            x = cubeLimits[0];
+            z = cubeLimits[5];
+            y = (constant - (z * zCoeff) - (x * xCoeff)) / yCoeff;
+            if (y > cubeLimits[2] && y < cubeLimits[3])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+            // Side BF: y axis
+            x = cubeLimits[0];
+            z = cubeLimits[4];
+            y = (constant - (z * zCoeff) - (x * xCoeff)) / yCoeff;
+            if (y > cubeLimits[2] && y < cubeLimits[3])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+            // Side CG: y axis
+            x = cubeLimits[1];
+            z = cubeLimits[4];
+            y = (constant - (z * zCoeff) - (x * xCoeff)) / yCoeff;
+            if (y > cubeLimits[2] && y < cubeLimits[3])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+            // Side DH: y axis
+            x = cubeLimits[1];
+            z = cubeLimits[5];
+            y = (constant - (z * zCoeff) - (x * xCoeff)) / yCoeff;
+            if (y > cubeLimits[2] && y < cubeLimits[3])
+            {
+                intersections.Add(new Point3D(x, y, z));
+
+            }
+
+            return intersections.ToArray();
+        }
+
+        public string[,,] findAllNeighborKeys3DArray(string key, int neighborhoodSize)
+        {
+            double X_gridLimitFloor = 0;
+            double X_gridLimitCeiling = 0;
+            double Y_gridLimitFloor = 0;
+            double Y_gridLimitCeiling = 0;
+            double Z_gridLimitFloor = 0;
+            double Z_gridLimitCeiling = 0;
+
+            double X_gridLimitFloorCurr = 0;
+            double X_gridLimitCeilingCurr = 0;
+            double Y_gridLimitFloorCurr = 0;
+            double Y_gridLimitCeilingCurr = 0;
+            double Z_gridLimitFloorCurr = 0;
+            double Z_gridLimitCeilingCurr = 0;
+
+            string[,,] allNeighborKeys = new string[neighborhoodSize, neighborhoodSize, neighborhoodSize];
+
+            string[] pairSeperatedKey;
+            string[] rangeSeperatedKey;
+
+            int i, j, k, strIndex = 0;
+            int midpoint = neighborhoodSize / 2;
+
+            int offsetStarting = (neighborhoodSize / 2) * -1;
+            int[] offsets = new int[neighborhoodSize];
+            for (i = 0; i < neighborhoodSize; i++)
+            {
+                offsets[i] = offsetStarting;
+                offsetStarting++;
+            }
+
+            pairSeperatedKey = key.Split(',');
+            rangeSeperatedKey = pairSeperatedKey[0].Split('/');
+            X_gridLimitFloorCurr = Double.Parse(rangeSeperatedKey[0]);
+            X_gridLimitCeilingCurr = Double.Parse(rangeSeperatedKey[1]);
+
+            rangeSeperatedKey = pairSeperatedKey[1].Split('/');
+            Y_gridLimitFloorCurr = Double.Parse(rangeSeperatedKey[0]);
+            Y_gridLimitCeilingCurr = Double.Parse(rangeSeperatedKey[1]);
+
+            rangeSeperatedKey = pairSeperatedKey[2].Split('/');
+            Z_gridLimitFloorCurr = Double.Parse(rangeSeperatedKey[0]);
+            Z_gridLimitCeilingCurr = Double.Parse(rangeSeperatedKey[1]);
+
+            for (i = 0; i < neighborhoodSize; i++)
+            {
+                for (j = 0; j < neighborhoodSize; j++)
+                {
+                    for (k = 0; k < neighborhoodSize; k++)
+                    {
+                        X_gridLimitFloor = X_gridLimitFloorCurr + offsets[i];
+                        X_gridLimitCeiling = X_gridLimitCeilingCurr + offsets[i];
+
+                        Y_gridLimitFloor = Y_gridLimitFloorCurr + offsets[j];
+                        Y_gridLimitCeiling = Y_gridLimitCeilingCurr + offsets[j];
+
+                        Z_gridLimitFloor = Z_gridLimitFloorCurr + offsets[k];
+                        Z_gridLimitCeiling = Z_gridLimitCeilingCurr + offsets[k];
+
+                        allNeighborKeys[i, j, k] = X_gridLimitFloor + "/" + X_gridLimitCeiling + "," +
+                            Y_gridLimitFloor + "/" + Y_gridLimitCeiling + "," +
+                            Z_gridLimitFloor + "/" + Z_gridLimitCeiling;
+                        strIndex++;
+                    }
+                }
+            }
+
+            return allNeighborKeys;
+        }
+
+        public string[] findAllNeighborKeys(string key, int neighborhoodSize)
+        {
+            double X_gridLimitFloor = 0;
+            double X_gridLimitCeiling = 0;
+            double Y_gridLimitFloor = 0;
+            double Y_gridLimitCeiling = 0;
+            double Z_gridLimitFloor = 0;
+            double Z_gridLimitCeiling = 0;
+
+            double X_gridLimitFloorCurr = 0;
+            double X_gridLimitCeilingCurr = 0;
+            double Y_gridLimitFloorCurr = 0;
+            double Y_gridLimitCeilingCurr = 0;
+            double Z_gridLimitFloorCurr = 0;
+            double Z_gridLimitCeilingCurr = 0;
+
+            string[] allNeighborKeys = new string[neighborhoodSize * neighborhoodSize * neighborhoodSize - 1];
+
+            string[] pairSeperatedKey;
+            string[] rangeSeperatedKey;
+
+            int i, j, k, strIndex = 0;
+            int midpoint = neighborhoodSize / 2;
+
+            int offsetStarting = (neighborhoodSize / 2) * -1;
+            int[] offsets = new int[neighborhoodSize];
+            for (i = 0; i < neighborhoodSize; i++)
+            {
+                offsets[i] = offsetStarting;
+                offsetStarting++;
+            }
+
+            pairSeperatedKey = key.Split(',');
+            rangeSeperatedKey = pairSeperatedKey[0].Split('/');
+            X_gridLimitFloorCurr = Double.Parse(rangeSeperatedKey[0]);
+            X_gridLimitCeilingCurr = Double.Parse(rangeSeperatedKey[1]);
+
+            rangeSeperatedKey = pairSeperatedKey[1].Split('/');
+            Y_gridLimitFloorCurr = Double.Parse(rangeSeperatedKey[0]);
+            Y_gridLimitCeilingCurr = Double.Parse(rangeSeperatedKey[1]);
+
+            rangeSeperatedKey = pairSeperatedKey[2].Split('/');
+            Z_gridLimitFloorCurr = Double.Parse(rangeSeperatedKey[0]);
+            Z_gridLimitCeilingCurr = Double.Parse(rangeSeperatedKey[1]);
+
+            for (i = 0; i < neighborhoodSize; i++)
+            {
+                for (j = 0; j < neighborhoodSize; j++)
+                {
+                    for (k = 0; k < neighborhoodSize; k++)
+                    {
+                        if (!(i == midpoint && j == midpoint && k == midpoint))
+                        {
+                            X_gridLimitFloor = X_gridLimitFloorCurr + offsets[i];
+                            X_gridLimitCeiling = X_gridLimitCeilingCurr + offsets[i];
+
+                            Y_gridLimitFloor = Y_gridLimitFloorCurr + offsets[j];
+                            Y_gridLimitCeiling = Y_gridLimitCeilingCurr + offsets[j];
+
+                            Z_gridLimitFloor = Z_gridLimitFloorCurr + offsets[k];
+                            Z_gridLimitCeiling = Z_gridLimitCeilingCurr + offsets[k];
+
+                            allNeighborKeys[strIndex] = X_gridLimitFloor + "/" + X_gridLimitCeiling + "," +
+                                Y_gridLimitFloor + "/" + Y_gridLimitCeiling + "," +
+                                Z_gridLimitFloor + "/" + Z_gridLimitCeiling;
+                            strIndex++;
+                        }
+                    }
+                }
+            }
+
+            return allNeighborKeys;
+        }
+
+        public Kinect3DOperations(ref DepthMasterControl depthMasterControl,
+                                  ref RenderViewFunctionalities renderViewFunctionalities,
+                                  ref TextBlock informationTextBlock)
+        {
+            this.depthMasterControl = depthMasterControl;
+            this.renderViewFunctionalities = renderViewFunctionalities;
+            this.informationTextBlock = informationTextBlock;
+        }
+
+        public void savePointCloud()
+        {
+            //depth_master_control.pointCloudArray
+
+            string path = "D:/Solar Project/XBOX ONE/MESA 3D/3DSandbox/3DSandbox/Text Files/saved_point_cloud.txt";
+            string strToWrite = "";
+            int limit = depthMasterControl.pointCloudArrayDouble.Length;
+            int k = 0;
+            Byte[] info;
+            double X = 0.0;
+            double Y = 0.0;
+            double Z = 0.0;
+            double X_gridLimitFloor = 0.0;
+            double X_gridLimitCeiling = 0.0;
+            double Y_gridLimitFloor = 0.0;
+            double Y_gridLimitCeiling = 0.0;
+            double Z_gridLimitFloor = 0.0;
+            double Z_gridLimitCeiling = 0.0;
+            string[] gridLimitsStr = new string[6];
+            string gridLimitsStrWholes = "";
+
+            Dictionary<int, Point3D> containedGridVertices = new Dictionary<int, Point3D>();
+
+            using (FileStream fs = File.Open(path, FileMode.Open, FileAccess.Write, FileShare.None))
+            {
+                for (int i = 0; i < limit; i = i + 3)
+                {
+                    if (depthMasterControl.pointCloudArray[i] != 0 && depthMasterControl.pointCloudArray[i + 1] != 0
+                        && depthMasterControl.pointCloudArray[i + 2] != 0)
+                    {
+
+                        X = depthMasterControl.pointCloudArrayDouble[i + k++] / 8;
+                        Y = depthMasterControl.pointCloudArrayDouble[i + k++] / 8;
+                        Z = depthMasterControl.pointCloudArrayDouble[i + k++] / 8;
+                        k = 0;
+
+                        X_gridLimitFloor = Math.Floor(X);
+                        Y_gridLimitFloor = Math.Floor(Y);
+                        Z_gridLimitFloor = Math.Floor(Z);
+                        X_gridLimitCeiling = Math.Ceiling(X);
+                        Y_gridLimitCeiling = Math.Ceiling(Y);
+                        Z_gridLimitCeiling = Math.Ceiling(Z);
+
+                        gridLimitsStr = new string[6];
+                        gridLimitsStr[0] = Math.Floor(X).ToString();
+                        gridLimitsStr[2] = Math.Floor(Y).ToString();
+                        gridLimitsStr[4] = Math.Floor(Z).ToString();
+                        gridLimitsStr[1] = Math.Ceiling(X).ToString();
+                        gridLimitsStr[3] = Math.Ceiling(Y).ToString();
+                        gridLimitsStr[5] = Math.Ceiling(Z).ToString();
+
+                        gridLimitsStrWholes = gridLimitsStr[0] + "/" + gridLimitsStr[1] + "," + gridLimitsStr[2]
+                            + "/" + gridLimitsStr[3] + "," + gridLimitsStr[4] + "/" + gridLimitsStr[5];
+
+                        if (verticesGrid.ContainsKey(gridLimitsStrWholes))
+                        {
+                            containedGridVertices = verticesGrid[gridLimitsStrWholes];
+                            containedGridVertices.Add(i, new Point3D(X * 8, Y * 8, Z * 8));
+                        }
+                        else
+                        {
+                            containedGridVertices = new Dictionary<int, Point3D>();
+                            containedGridVertices.Add(i, new Point3D(X * 8, Y * 8, Z * 8));
+                            verticesGrid.Add(gridLimitsStrWholes, containedGridVertices);
+                        }
+
+                        strToWrite = (depthMasterControl.pointCloudArrayDouble[i + k++]) + " " +
+                                     (depthMasterControl.pointCloudArrayDouble[i + k++]) + " " +
+                                     (depthMasterControl.pointCloudArrayDouble[i + k++]) + "\n";
+                        k = 0;
+                        info = new UTF8Encoding(true).GetBytes(strToWrite);
+                        fs.Write(info, 0, info.Length);
+                    }
+                }
+            }
+
+            int maxVerticesPerCube = 0;
+
+            path = "D:/Solar Project/XBOX ONE/MESA 3D/3DSandbox/3DSandbox/Text Files/saved_point_cloud2.txt";
+            using (FileStream fs = File.Open(path, FileMode.Open, FileAccess.Write, FileShare.None))
+            {
+                var keys = verticesGrid.Keys;
+
+                foreach (string key in keys)
+                {
+                    containedGridVertices = verticesGrid[key];
+                    var containedGridVerticesKeys = containedGridVertices.Keys;
+
+                    int j = containedGridVerticesKeys.Count;
+
+                    foreach (int vertex in containedGridVerticesKeys)
+                    {
+                        Point3D point = containedGridVertices[vertex];
+                        strToWrite = "[" + key + "]";
+                        strToWrite += "  :  v = " + vertex + " pos:";
+                        strToWrite += point.ToString() + "\n";
+                        info = new UTF8Encoding(true).GetBytes(strToWrite);
+                        fs.Write(info, 0, info.Length);
+                    }
+
+                    if (j > maxVerticesPerCube)
+                    {
+                        maxVerticesPerCube = j;
+                    }
+                }
+
+                info = new UTF8Encoding(true).GetBytes("Max: " + maxVerticesPerCube + "\n");
+                fs.Write(info, 0, info.Length);
+
+                int count = 0;
+                int i = 0;
+                keys = verticesGrid.Keys;
+
+                for (i = 0; i < maxVerticesPerCube; i++)
+                {
+                    count = 0;
+                    foreach (string key in keys)
+                    {
+                        containedGridVertices = verticesGrid[key];
+                        var containedGridVerticesKeys = containedGridVertices.Keys;
+                        if ((i + 1) == containedGridVerticesKeys.Count)
+                        {
+                            count++;
+                        }
+                    }
+
+                    info = new UTF8Encoding(true).GetBytes("Number of Verticees: " + (i + 1) + " : " + count + "\n");
+                    fs.Write(info, 0, info.Length);
+                }
+
+                int numOfLoneVerticees = verticesGrid.Keys.Count;
+                int numOfLoneCubes = verticesGrid.Keys.Count;
+
+                string[] neighborStr;
+
+                /*
+                foreach (string key in keys)
+                {
+                    containedGridVertices = verticesGrid[key];
+                    var containedGridVerticesKeys = containedGridVertices.Keys;
+                    if (containedGridVerticesKeys.Count == 1)
+                    {
+                        neighborStr = findAllNeighborKeys(key, 3);
+                        foreach(string singleNeighbor in neighborStr)
+                        {
+                            if(verticesGrid.ContainsKey(singleNeighbor))
+                            {
+                                numOfLoneVerticees--;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (containedGridVerticesKeys.Count > 0)
+                    {
+                        neighborStr = findAllNeighborKeys(key, 7);
+                        foreach (string singleNeighbor in neighborStr)
+                        {
+                            if (verticesGrid.ContainsKey(singleNeighbor))
+                            {
+                                numOfLoneCubes--;
+                                break;
+                            }
+                        }
+                    }
+                }
+                */
+
+                info = new UTF8Encoding(true).GetBytes("Number of Lone Vertices" + " : " + numOfLoneVerticees + "\n");
+                fs.Write(info, 0, info.Length);
+                info = new UTF8Encoding(true).GetBytes("Number of Lone Cubes" + " : " + numOfLoneCubes + "\n");
+                fs.Write(info, 0, info.Length);
+
+            }
+        }
+
+        public void renderTrianglePlanes2()
+        {
+            MeshGeometry3D pointCloudMesh2 = new MeshGeometry3D();
+            DiffuseMaterial surface_material = new DiffuseMaterial(Brushes.Blue);
+            
+            MeshGeometry3D pointCloudMesh = new MeshGeometry3D();
+
+            foreach (int[] triangleVerticesIndices in planeTrianglesIndicesList.Values)
+            {
+                renderViewFunctionalities.AddTriangle(pointCloudMesh,
+                    planeVertices[triangleVerticesIndices[0]],
+                    planeVertices[triangleVerticesIndices[1]],
+                    planeVertices[triangleVerticesIndices[2]]);
+            }
+            surface_material = new DiffuseMaterial(Brushes.DarkOrange);
+            GeometryModel3D surface_model_cuboid = new GeometryModel3D(pointCloudMesh, surface_material);
+
+            // Make the surface visible from both sides.
+            surface_model_cuboid.BackMaterial = surface_material;
+
+            // Add the model to the model groups.
+            renderViewFunctionalities.MainModel3Dgroup.Children.Add(surface_model_cuboid);
+        }
+
+        public void renderTrianglePlanes()
+        {
+            /*
+            MeshGeometry3D pointCloudMesh2 = new MeshGeometry3D();
+            renderViewFunctionalities.AddTriangle(pointCloudMesh2, new Point3D(100, 100, 100), new Point3D(100, 100, 1),
+                new Point3D(100, 1, 100));
+
+            DiffuseMaterial qDiffTransYellow =
+                new DiffuseMaterial(new SolidColorBrush(Color.FromArgb(20, 100, 245, 173)));
+            SpecularMaterial qSpecTransWhite =
+                new SpecularMaterial(new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)), 30.0);
+            MaterialGroup qOuterMaterial = new MaterialGroup();
+            qOuterMaterial.Children.Add(qDiffTransYellow);
+            qOuterMaterial.Children.Add(qSpecTransWhite);
+
+            GeometryModel3D surface_model_cuboid2 = new GeometryModel3D(pointCloudMesh2, qOuterMaterial);
+            // Make the surface visible from both sides.
+            surface_model_cuboid2.BackMaterial = qOuterMaterial;
+
+            // Add the model to the model groups.
+            renderViewFunctionalities.MainModel3Dgroup.Children.Add(surface_model_cuboid2);
+            */
+            
+            MeshGeometry3D pointCloudMesh2 = new MeshGeometry3D();
+            DiffuseMaterial surface_material = new DiffuseMaterial(Brushes.Blue);
+
+            //renderViewFunctionalities.renderCubeGridLines(pointCloudMesh2, cubeSize);
+            GeometryModel3D surface_model_cuboid2 = new GeometryModel3D(pointCloudMesh2, surface_material);
+
+            // Make the surface visible from both sides.
+            surface_model_cuboid2.BackMaterial = surface_material;
+
+            // Add the model to the model groups.
+            //renderViewFunctionalities.MainModel3Dgroup.Children.Add(surface_model_cuboid2);
+            
+            MeshGeometry3D pointCloudMesh = new MeshGeometry3D();
+
+            foreach (Point3D[] triangle in planeTrianglesList.Values)
+            {
+                renderViewFunctionalities.AddTriangle(pointCloudMesh, triangle[0], triangle[1], triangle[2]);
+            }
+            surface_material = new DiffuseMaterial(Brushes.DarkOrange);
+            GeometryModel3D surface_model_cuboid = new GeometryModel3D(pointCloudMesh, surface_material);
+
+            // Make the surface visible from both sides.
+            surface_model_cuboid.BackMaterial = surface_material;
+
+            // Add the model to the model groups.
+            renderViewFunctionalities.MainModel3Dgroup.Children.Add(surface_model_cuboid);
+        }
+
+        public void renderTriangles()
+        {
+            verticesGrid = this.verticesGrid;
+            Dictionary<int, Point3D> containedGridVertices = new Dictionary<int, Point3D>();
+            var keys = verticesGrid.Keys;
+            Point3D vertexPoint;
+            Point3D[] threeVertexPoint = new Point3D[3];
+            int i = 0;
+            Vector3D firstVector, secondVector, normalVector;
+
+            MeshGeometry3D pointCloudMesh = new MeshGeometry3D();
+            DiffuseMaterial surface_material = new DiffuseMaterial(Brushes.Violet);
+
+            foreach (string key in keys)
+            {
+                containedGridVertices = verticesGrid[key];
+                var containedGridVerticesKeys = containedGridVertices.Keys;
+
+                if (containedGridVerticesKeys.Count >= 3)
+                {
+                    if (containedGridVerticesKeys.Count == 3)
+                    {
+                        foreach (int vertex in containedGridVerticesKeys)
+                        {
+                            if (i < 3)
+                            {
+                                threeVertexPoint[i] = containedGridVertices[vertex];
+                            }
+                            i++;
+                        }
+                        i = 0;
+
+                        firstVector = threeVertexPoint[1] - threeVertexPoint[0];
+                        secondVector = threeVertexPoint[2] - threeVertexPoint[0];
+
+                        normalVector = new Vector3D();
+                        normalVector = Vector3D.CrossProduct(firstVector, secondVector);
+
+                        Point3D point1 = new Point3D(threeVertexPoint[0].X / 1, threeVertexPoint[0].Y / 1,
+                            threeVertexPoint[0].Z / 1);
+                        Point3D point2 = new Point3D(threeVertexPoint[1].X / 1, threeVertexPoint[1].Y / 1,
+                            threeVertexPoint[1].Z / 1);
+                        Point3D point3 = new Point3D(threeVertexPoint[2].X / 1, threeVertexPoint[2].Y / 1,
+                            threeVertexPoint[2].Z / 1);
+
+                        renderViewFunctionalities.AddTriangle(pointCloudMesh, point1, point2, point3);
+                    }
+                    else
+                    {
+                        foreach (int vertex in containedGridVerticesKeys)
+                        {
+                            vertexPoint = containedGridVertices[vertex];
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (int vertex in containedGridVerticesKeys)
+                    {
+                        Point3D point1 = new Point3D(containedGridVertices[vertex].X / 1 + 2,
+                            containedGridVertices[vertex].Y / 1,
+                            containedGridVertices[vertex].Z / 1);
+                        renderViewFunctionalities.renderSingleVertex(pointCloudMesh, point1);
+                    }
+                }
+            }
+
+            GeometryModel3D surface_model_cuboid = new GeometryModel3D(pointCloudMesh, surface_material);
+
+            // Make the surface visible from both sides.
+            surface_model_cuboid.BackMaterial = surface_material;
+
+            // Add the model to the model groups.
+            renderViewFunctionalities.MainModel3Dgroup.Children.Add(surface_model_cuboid);
+        }
+        
+
+        public void pointCloudOfExample()
+        {
+            //depth_master_control.pointCloudArray
+
+            string path = "D:/Solar Project/XBOX ONE/MESA 3D/3DSandbox/3DSandbox/Text Files/saved_point_cloud.txt";
+            string strToWrite = "";
+            int limit = vertices.Count;
+            int k = 0;
+            Byte[] info;
+            double X = 0.0;
+            double Y = 0.0;
+            double Z = 0.0;
+            double X_gridLimitFloor = 0.0;
+            double X_gridLimitCeiling = 0.0;
+            double Y_gridLimitFloor = 0.0;
+            double Y_gridLimitCeiling = 0.0;
+            double Z_gridLimitFloor = 0.0;
+            double Z_gridLimitCeiling = 0.0;
+            string[] gridLimitsStr = new string[6];
+            string gridLimitsStrWholes = "";
+            string[] vertexStrArr;
+
+            int i = 0;
+
+            MeshGeometry3D pointCloudMesh22 = new MeshGeometry3D();
+
+            Dictionary<int, Point3D> containedGridVertices = new Dictionary<int, Point3D>();
+
+            foreach (string vertexStr in vertices)
+            {
+                vertexStrArr = vertexStr.Split(' ');
+
+                X = Double.Parse(vertexStrArr[0]) / cubeSize;
+                Y = Double.Parse(vertexStrArr[1]) / cubeSize;
+                Z = Double.Parse(vertexStrArr[2]) / cubeSize;
+
+                gridLimitsStr = new string[6];
+                gridLimitsStr[0] = Math.Floor(X).ToString();
+                gridLimitsStr[2] = Math.Floor(Y).ToString();
+                gridLimitsStr[4] = Math.Floor(Z).ToString();
+                gridLimitsStr[1] = Math.Ceiling(X).ToString();
+                gridLimitsStr[3] = Math.Ceiling(Y).ToString();
+                gridLimitsStr[5] = Math.Ceiling(Z).ToString();
+
+                gridLimitsStrWholes = gridLimitsStr[0] + "/" + gridLimitsStr[1] + "," + gridLimitsStr[2]
+                        + "/" + gridLimitsStr[3] + "," + gridLimitsStr[4] + "/" + gridLimitsStr[5];
+
+                if (verticesGrid.ContainsKey(gridLimitsStrWholes))
+                {
+                    containedGridVertices = verticesGrid[gridLimitsStrWholes];
+                    containedGridVertices.Add(i, new Point3D(X * cubeSize, Y * cubeSize, Z * cubeSize));
+                }
+                else
+                {
+                    renderViewFunctionalities.renderSingleTransparentCube(pointCloudMesh22, 
+                        new Point3D(((Math.Ceiling(X) - Math.Floor(X)) / 2 + Math.Floor(X)) * cubeSize,
+                                    ((Math.Ceiling(Y) - Math.Floor(Y)) / 2 + Math.Floor(Y)) * cubeSize,
+                                    ((Math.Ceiling(Z) - Math.Floor(Z)) / 2 + Math.Floor(Z)) * cubeSize), cubeSize);
+                    containedGridVertices = new Dictionary<int, Point3D>();
+                    containedGridVertices.Add(i, new Point3D(X * cubeSize, Y * cubeSize, Z * cubeSize));
+                    verticesGrid.Add(gridLimitsStrWholes, containedGridVertices);
+                }
+                i++;
+            }
+
+            DiffuseMaterial qDiffTransYellow =
+                new DiffuseMaterial(new SolidColorBrush(Color.FromArgb(20, 100, 245, 173)));
+            SpecularMaterial qSpecTransWhite =
+                new SpecularMaterial(new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)), 30.0);
+            MaterialGroup qOuterMaterial = new MaterialGroup();
+            qOuterMaterial.Children.Add(qDiffTransYellow);
+            qOuterMaterial.Children.Add(qSpecTransWhite);
+
+            GeometryModel3D surface_model_cuboid = new GeometryModel3D(pointCloudMesh22, qOuterMaterial);
+            // Make the surface visible from both sides.
+            surface_model_cuboid.BackMaterial = qOuterMaterial;
+
+            // Add the model to the model groups.
+            // renderViewFunctionalities.MainModel3Dgroup.Children.Add(surface_model_cuboid);
+
+            int maxVerticesPerCube = 0;
+
+            path = "D:/Solar Project/XBOX ONE/MESA 3D/3DSandbox/3DSandbox/Text Files/saved_point_cloud2.txt";
+            using (FileStream fs = File.Open(path, FileMode.Open, FileAccess.Write, FileShare.None))
+            {
+                var keys = verticesGrid.Keys;
+
+                foreach (string key in keys)
+                {
+                    containedGridVertices = verticesGrid[key];
+                    var containedGridVerticesKeys = containedGridVertices.Keys;
+
+                    int j = containedGridVerticesKeys.Count;
+
+                    foreach (int vertex in containedGridVerticesKeys)
+                    {
+                        Point3D point = containedGridVertices[vertex];
+                        strToWrite = "[" + key + "]";
+                        strToWrite += "  :  v = " + vertex + " pos:";
+                        strToWrite += point.ToString() + "\n";
+                        info = new UTF8Encoding(true).GetBytes(strToWrite);
+                        fs.Write(info, 0, info.Length);
+                    }
+
+                    if (j > maxVerticesPerCube)
+                    {
+                        maxVerticesPerCube = j;
+                    }
+                }
+
+                info = new UTF8Encoding(true).GetBytes("Max: " + maxVerticesPerCube + "\n");
+                fs.Write(info, 0, info.Length);
+
+                int count = 0;
+                i = 0;
+                keys = verticesGrid.Keys;
+
+                for (i = 0; i < maxVerticesPerCube; i++)
+                {
+                    count = 0;
+                    foreach (string key in keys)
+                    {
+                        containedGridVertices = verticesGrid[key];
+                        var containedGridVerticesKeys = containedGridVertices.Keys;
+                        if ((i + 1) == containedGridVerticesKeys.Count)
+                        {
+                            count++;
+                        }
+                    }
+
+                    info = new UTF8Encoding(true).GetBytes("Number of Verticees: " + (i + 1) + " : " + count + "\n");
+                    fs.Write(info, 0, info.Length);
+                }
+
+                int numOfLoneVerticees = verticesGrid.Keys.Count;
+                int numOfLoneCubes = verticesGrid.Keys.Count;
+
+                string[] neighborStr;
+
+                /*
+                foreach (string key in keys)
+                {
+                    containedGridVertices = verticesGrid[key];
+                    var containedGridVerticesKeys = containedGridVertices.Keys;
+                    if (containedGridVerticesKeys.Count == 1)
+                    {
+                        neighborStr = findAllNeighborKeys(key, 3);
+                        foreach (string singleNeighbor in neighborStr)
+                        {
+                            if (verticesGrid.ContainsKey(singleNeighbor))
+                            {
+                                numOfLoneVerticees--;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (containedGridVerticesKeys.Count > 0)
+                    {
+                        neighborStr = findAllNeighborKeys(key, 7);
+                        foreach (string singleNeighbor in neighborStr)
+                        {
+                            if (verticesGrid.ContainsKey(singleNeighbor))
+                            {
+                                numOfLoneCubes--;
+                                break;
+                            }
+                        }
+                    }
+                }
+                */
+
+                info = new UTF8Encoding(true).GetBytes("Number of Lone Vertices" + " : " + numOfLoneVerticees + "\n");
+                fs.Write(info, 0, info.Length);
+                info = new UTF8Encoding(true).GetBytes("Number of Lone Cubes" + " : " + numOfLoneCubes + "\n");
+                fs.Write(info, 0, info.Length);
+
+            }
+        }
+
+        /// <summary>
+        /// This method connects planes of each grid together by merging them if they are on the same
+        /// edge of the cube.
+        /// </summary>
+        public void connectAdjacentPlanes()
+        {
+            Dictionary<string, ConnectOfCube> neigboringCube;
+            Dictionary<int, Tuple<EdgesOfCube, double, Point3D>> currentCubeVertices; 
+            var keys = verticesAtFacesGrid.Keys;
+            ConnectOfCube connectionOfCube;
+            Dictionary<EdgesOfCube, int> edgesOfCurrentCube;
+            Dictionary<EdgesOfCube, int> edgesOfNeighborCube;
+            Point3D currentVertex;
+            Point3D neigborVertex;
+            double currentVertexParameter;
+            double neighborVertexParameter;
+            double mergeValue;
+            EdgesOfCube currentEdge;
+            EdgesOfCube edgeOfNeighbor;
+            Dictionary<int, int[]> neighborCubeTriangleIndices;
+            List<int> neighborsVertices;
+
+            foreach (string key in keys)
+            {
+                neigboringCube = verticesAtFacesGrid[key].Item1;
+                currentCubeVertices = verticesAtFacesGrid[key].Item2;
+                edgesOfCurrentCube = edgesOfCubeVerticesPresent[key];
+                
+                foreach (string neighborKey in neigboringCube.Keys)
+                {
+                    connectionOfCube = neigboringCube[neighborKey];
+                    edgesOfNeighborCube = edgesOfCubeVerticesPresent[neighborKey];
+
+                    // Connection at an edge:
+                    if (connectionOfCube >= ConnectOfCube.AB && connectionOfCube <= ConnectOfCube.DH)
+                    {
+                        currentEdge = (EdgesOfCube)connectionOfCube;
+                        if(edgesOfCurrentCube.ContainsKey(currentEdge))
+                        {
+                            edgeOfNeighbor = edgeNeighborEdges[(int)currentEdge];
+
+                            if (edgesOfNeighborCube.ContainsKey(edgeOfNeighbor))
+                            {
+                                neighborCubeTriangleIndices = cubeTrianglesIndicesList[neighborKey];
+                                neighborsVertices = verticesOfCubes[neighborKey];
+
+                                // Merge the edges:
+                                currentVertex = planeVertices[edgesOfCurrentCube[currentEdge]];
+                                neigborVertex = planeVertices[edgesOfNeighborCube[edgeOfNeighbor]];
+
+                                if (currentEdge == EdgesOfCube.AB || currentEdge == EdgesOfCube.CD
+                                    || currentEdge == EdgesOfCube.EF || currentEdge == EdgesOfCube.GH)
+                                {
+                                    // Z Axis:
+                                    currentVertexParameter = currentVertex.Z;
+                                    neighborVertexParameter = neigborVertex.Z;
+                                    mergeValue = currentVertexParameter +
+                                        (neighborVertexParameter - currentVertexParameter) / 2;
+                                    currentVertex.Z = mergeValue;
+                                    neigborVertex.Z = mergeValue;
+                                }
+
+                                if (currentEdge == EdgesOfCube.AE || currentEdge == EdgesOfCube.BF
+                                    || currentEdge == EdgesOfCube.CG || currentEdge == EdgesOfCube.DH)
+                                {
+                                    // Y Axis:
+                                    currentVertexParameter = currentVertex.Y;
+                                    neighborVertexParameter = neigborVertex.Y;
+                                    mergeValue = currentVertexParameter +
+                                        (neighborVertexParameter - currentVertexParameter) / 2;
+                                    currentVertex.Y = mergeValue;
+                                    neigborVertex.Y = mergeValue;
+                                }
+
+                                if (currentEdge == EdgesOfCube.DA || currentEdge == EdgesOfCube.BC
+                                    || currentEdge == EdgesOfCube.FG || currentEdge == EdgesOfCube.HE)
+                                {
+                                    // X Axis:
+                                    currentVertexParameter = currentVertex.X;
+                                    neighborVertexParameter = neigborVertex.X;
+                                    mergeValue = currentVertexParameter +
+                                        (neighborVertexParameter - currentVertexParameter) / 2;
+                                    currentVertex.X = mergeValue;
+                                    neigborVertex.X = mergeValue;
+                                }
+
+                                planeVertices[edgesOfCurrentCube[currentEdge]] = currentVertex;
+                                planeVertices[edgesOfNeighborCube[edgeOfNeighbor]] = neigborVertex;
+                                edgesOfNeighborCube[edgeOfNeighbor] = edgesOfCurrentCube[currentEdge];
+
+                                neighborsVertices.Remove(edgesOfNeighborCube[edgeOfNeighbor]);
+                                neighborsVertices.Add(edgesOfCurrentCube[currentEdge]);
+
+                                /*
+                                foreach (int[] triangleIndices in neighborCubeTriangleIndices.Values)
+                                {
+                                    if(triangleIndices[0] == edgesOfNeighborCube[edgeOfNeighbor])
+                                    {
+                                        triangleIndices[0] = edgesOfCurrentCube[currentEdge];
+                                    }
+                                    if (triangleIndices[1] == edgesOfNeighborCube[edgeOfNeighbor])
+                                    {
+                                        triangleIndices[1] = edgesOfCurrentCube[currentEdge];
+                                    }
+                                    if (triangleIndices[2] == edgesOfNeighborCube[edgeOfNeighbor])
+                                    {
+                                        triangleIndices[2] = edgesOfCurrentCube[currentEdge];
+                                    }
+                                }
+                                */
+                            }
+                        }
+                        
+                        
+                    }
+
+                    // Connection at corner:
+                    if(connectionOfCube >= ConnectOfCube.ABC && connectionOfCube <= ConnectOfCube.HEF)
+                    {
+
+                    }
+
+                    // Connection at face:
+                    if (connectionOfCube >= ConnectOfCube.LEFT && connectionOfCube <= ConnectOfCube.BOTTOM)
+                    {
+
+                    }
+                }
+            }
+
+        }
+
+        /// <summary>
+        /// Create a mesh that is simplified from the vectex grid that we have populated
+        /// before. Planes are created at each grid, which are estimated based on the different
+        /// vertices present. These planes are then connected to create a mesh.
+        /// </summary>
+        public void createSimplifiedMeshFromGrid()
+        {
+            Dictionary<int, Point3D> containedGridVertices = new Dictionary<int, Point3D>();
+            Dictionary<int, Point3D> containedGridVerticesPlane;
+            var keys = verticesGrid.Keys;
+            int i = 0;
+            Point3D[] trianglePoints = new Point3D[3];
+            int planeVerticesIndex = 0, facedVerticesIndex = 0;
+            Vector3D vector1, vector2, normalVector;
+            double xCoeff, yCoeff, zCoeff, contstantOfPlaneEq;
+            double[] cubeLimits = new double[6];
+            int numberOfIntersections = 0;
+            int indexOfTriangles = 0;
+            string[] pairSeperatedKey;
+            string[] rangeSeperatedKey;
+
+            MeshGeometry3D pointCloudMesh2 = new MeshGeometry3D();
+            
+            foreach (string key in keys)
+            {
+                pairSeperatedKey = key.Split(',');
+                rangeSeperatedKey = pairSeperatedKey[0].Split('/');
+                cubeLimits[0] = Double.Parse(rangeSeperatedKey[0]);
+                cubeLimits[1] = Double.Parse(rangeSeperatedKey[1]);
+
+                rangeSeperatedKey = pairSeperatedKey[1].Split('/');
+                cubeLimits[2] = Double.Parse(rangeSeperatedKey[0]);
+                cubeLimits[3] = Double.Parse(rangeSeperatedKey[1]);
+
+                rangeSeperatedKey = pairSeperatedKey[2].Split('/');
+                cubeLimits[4] = Double.Parse(rangeSeperatedKey[0]);
+                cubeLimits[5] = Double.Parse(rangeSeperatedKey[1]);
+
+
+                containedGridVertices = verticesGrid[key];
+                var containedGridVerticesKeys = containedGridVertices.Keys;
+
+                containedGridVerticesPlane = new Dictionary<int, Point3D>();
+
+                trianglePoints = new Point3D[3];
+                i = 0;
+                int closestIndex = 0;
+
+                foreach (int vertex in containedGridVerticesKeys)
+                {
+                    Point3D point = containedGridVertices[vertex];
+
+                    if (i > 2)
+                    {
+                        closestIndex = findClosestTriangleVertex(trianglePoints, point);
+                        trianglePoints[closestIndex] = mergeTwoPoints(trianglePoints[closestIndex], point);
+                    }
+                    else
+                    {
+                        trianglePoints[i] = point;
+                        i++;
+                    }
+                }
+
+                if (i > 2)
+                {
+                    // Find normal Vector of Triangle:
+                    vector1 = new Vector3D(trianglePoints[1].X - trianglePoints[0].X,
+                        trianglePoints[1].Y - trianglePoints[0].Y,
+                        trianglePoints[1].Z - trianglePoints[0].Z);
+
+                    vector2 = new Vector3D(trianglePoints[2].X - trianglePoints[0].X,
+                        trianglePoints[2].Y - trianglePoints[0].Y,
+                        trianglePoints[2].Z - trianglePoints[0].Z);
+
+                    normalVector = Vector3D.CrossProduct(vector1, vector2);
+
+                    // Lets get equation of plane:
+                    contstantOfPlaneEq = trianglePoints[1].X * normalVector.X + trianglePoints[1].Y * normalVector.Y
+                        + trianglePoints[1].Z * normalVector.Z;
+
+                    int countZeros = 0;
+                    double zeroDouble = 0.0;
+                    if (zeroDouble.CompareTo(normalVector.X) == 0)
+                    {
+                        countZeros++;
+                    }
+                    if (zeroDouble.CompareTo(normalVector.Y) == 0)
+                    {
+                        countZeros++;
+                    }
+                    if (zeroDouble.CompareTo(normalVector.Z) == 0)
+                    {
+                        countZeros++;
+                    }
+                    
+                    if (countZeros >= 2)
+                    {
+                        normalVector.X += 0.0001;
+                        normalVector.Y += 0.0001;
+                        normalVector.Z += 0.0001;
+
+                        contstantOfPlaneEq = trianglePoints[1].X * normalVector.X + trianglePoints[1].Y * normalVector.Y
+                        + trianglePoints[1].Z * normalVector.Z;
+                    }
+                   
+                    Dictionary<int, Point3D> intersections = findCubeCrossSections2(key, ref facedVerticesIndex,
+                        cubeLimits, normalVector.X, normalVector.Y, normalVector.Z, contstantOfPlaneEq);
+
+                    convertPolygonIntoTriangles3(intersections, intersections.Count, ref indexOfTriangles, key);
+               } else
+               {
+                   /*
+                   renderViewFunctionalities.renderSingleTransparentCube(pointCloudMesh2,
+                          new Point3D(cubeLimits[1] * cubeSize - (cubeSize / 2),
+                          cubeLimits[3] * cubeSize - (cubeSize / 2),
+                          cubeLimits[5] * cubeSize - (cubeSize / 2)), cubeSize);
+                   */
+               }
+
+                /*
+                for (int j = 0; j < i; j++)
+                {
+                    containedGridVerticesPlane.Add(planeVerticesIndex++, trianglePoints[j]);
+                }
+                */
+
+                planeVerticesGrid.Add(key, containedGridVerticesPlane);
+            }
+
+            string[,,] neighbors;
+            int cc = 0;
+            int j = 0, k = 0;
+            Dictionary<string, ConnectOfCube> listOfNeighbors;
+            
+            // Find the neighbors of the cube:
+            foreach(string key2 in verticesAtFacesGrid.Keys)
+            {
+                var tuple = verticesAtFacesGrid[key2];
+
+                // Get the list of neighbors:
+                listOfNeighbors = tuple.Item1;
+
+                neighbors = findAllNeighborKeys3DArray(key2, 3);
+                cc = 0;
+                
+                for(i = 0; i < 3; i++)
+                {
+                    for (j = 0; j < 3; j++)
+                    {
+                        for (k = 0; k < 3; k++)
+                        {
+                            if (verticesAtFacesGrid.ContainsKey(neighbors[i,j,k]))
+                            {
+                                cc++;
+                                listOfNeighbors.Add(neighbors[i, j, k],
+                                    connectionToNeighboringCubes[i,j,k]);
+                            }
+                            /*
+                            pairSeperatedKey = neighbors[i, j, k].Split(',');
+                            rangeSeperatedKey = pairSeperatedKey[0].Split('/');
+                            cubeLimits[0] = Double.Parse(rangeSeperatedKey[0]);
+                            cubeLimits[1] = Double.Parse(rangeSeperatedKey[1]);
+
+                            rangeSeperatedKey = pairSeperatedKey[1].Split('/');
+                            cubeLimits[2] = Double.Parse(rangeSeperatedKey[0]);
+                            cubeLimits[3] = Double.Parse(rangeSeperatedKey[1]);
+
+                            rangeSeperatedKey = pairSeperatedKey[2].Split('/');
+                            cubeLimits[4] = Double.Parse(rangeSeperatedKey[0]);
+                            cubeLimits[5] = Double.Parse(rangeSeperatedKey[1]);
+                            renderViewFunctionalities.renderSingleTransparentCube(pointCloudMesh2,
+                                  new Point3D(cubeLimits[1] * cubeSize - (cubeSize / 2),
+                                  cubeLimits[3] * cubeSize - (cubeSize / 2),
+                                  cubeLimits[5] * cubeSize - (cubeSize / 2)), cubeSize);
+                                  */
+                        }
+                    }
+                }
+                
+            }
+
+
+            DiffuseMaterial qDiffTransYellow =
+                new DiffuseMaterial(new SolidColorBrush(Color.FromArgb(100, 100, 100, 173)));
+            SpecularMaterial qSpecTransWhite =
+                new SpecularMaterial(new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)), 30.0);
+            MaterialGroup qOuterMaterial = new MaterialGroup();
+            qOuterMaterial.Children.Add(qDiffTransYellow);
+            qOuterMaterial.Children.Add(qSpecTransWhite);
+
+            GeometryModel3D surface_model_cuboid2 = new GeometryModel3D(pointCloudMesh2, qOuterMaterial);
+            // Make the surface visible from both sides.
+            surface_model_cuboid2.BackMaterial = qOuterMaterial;
+
+            // Add the model to the model groups.
+            renderViewFunctionalities.MainModel3Dgroup.Children.Add(surface_model_cuboid2);
+        }
+
+        public void createTrianglesOfCubePlanes()
+        {
+
+            foreach(string key in verticesOfCubes.Keys)
+            {
+
+            }
+
+        }
+
+
+        public void runConvertPolygonIntoTrianglesTest()
+        {
+            /*
+            Dictionary<int, Point3D> pointsOfPolygon = new Dictionary<int, Point3D>();
+            pointsOfPolygon[0] = new Point3D(5,2,0);
+            pointsOfPolygon[1] = new Point3D(-3,-2,0);
+            pointsOfPolygon[2] = new Point3D(3,-6,0);
+            pointsOfPolygon[3] = new Point3D(2,6,0);
+            pointsOfPolygon[4] = new Point3D(1,-6,0);
+            pointsOfPolygon[5] = new Point3D(6,-2,0);
+
+            int i = 0;
+           
+            convertPolygonIntoTriangles2(pointsOfPolygon, pointsOfPolygon.Count);
+            
+            foreach (Point3D[] points in planeTrianglesList)
+            {
+                informationTextBlock.Text += points[0].X.ToString() + ", " +
+                    points[0].Y.ToString() + ", " + points[0].Z.ToString() + "\n";
+                informationTextBlock.Text += points[1].X.ToString() + ", " +
+                    points[1].Y.ToString() + ", " + points[1].Z.ToString() + "\n";
+                informationTextBlock.Text += points[2].X.ToString() + ", " +
+                    points[2].Y.ToString() + ", " + points[2].Z.ToString() + "\n";
+                informationTextBlock.Text += "\n";
+            }
+           
+            */
+
+            double x = 4.57880000000001;
+            double y = 4.57880000000001;
+            
+            if(x.CompareTo(y) == 0)
+            {
+                informationTextBlock.Text += "hdhfbs\n";
+            }
+        }
+
+        /// <summary>
+        /// Create triangles based on the number of vertices of the Polygon.
+        /// </summary>
+        /// <param name="pointsOfPolygon"></param>
+        public List<Point3D[]> convertPolygonIntoTriangles(Point3D[] pointsOfPolygon, int numberOfVertices)
+        {
+            //Point3D[] closestNeighbors = new Point3D[numberOfVertices * 2];
+            int[] closestNeighborsIndexArr = new int[numberOfVertices * 2];
+            Point3D[] points = new Point3D[numberOfVertices];
+            points = pointsOfPolygon.ToArray<Point3D>();
+
+            int i = 0, closestNeighborsIndex = 0, j = 0;
+            Point3D pointToHandle;
+            double distance = 0, dx, dy, dz, minDistance, secondMinDistance;
+            int firstMinIndex = 0, secondMinIndex = 0;
+            Point3D pointToCompare;
+            Point3D pointToAdd;
+            HashSet<Point3D> setOfOrderedPoints = new HashSet<Point3D>();
+            List<Point3D> listOfOrderedPoints = new List<Point3D>();
+
+            for (i = 0; i < numberOfVertices; i++)
+            {
+                distance = 0;
+                minDistance = 100;
+                secondMinDistance = 100;
+                firstMinIndex = 0;
+                secondMinIndex = 0;
+                pointToHandle = pointsOfPolygon[i];
+
+                for(j = 0; j < numberOfVertices; j++)
+                {
+                    if (pointToHandle != pointsOfPolygon[j])
+                    {
+                        pointToCompare = pointsOfPolygon[j];
+                        dx = pointToCompare.X - pointToHandle.X;
+                        dy = pointToCompare.Y - pointToHandle.Y;
+                        dz = pointToCompare.Z - pointToHandle.Z;
+                        distance = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+
+                        if (distance < minDistance)
+                        {
+                            secondMinDistance = minDistance;
+                            minDistance = distance;
+
+                            secondMinIndex = firstMinIndex;
+                            firstMinIndex = j;
+                        }
+                        else
+                        {
+                            if (distance < secondMinDistance)
+                            {
+                                secondMinDistance = distance;
+                                secondMinIndex = j;
+                            }
+                        }
+                    }
+                }
+
+                //closestNeighbors[closestNeighborsIndex] = pointsOfPolygon[firstMinIndex];
+                closestNeighborsIndexArr[closestNeighborsIndex++] = firstMinIndex;
+                //closestNeighbors[closestNeighborsIndex] = pointsOfPolygon[secondMinIndex];
+                closestNeighborsIndexArr[closestNeighborsIndex++] = secondMinIndex;
+
+            }
+
+            int k = 0;
+            i = 0;
+            pointToHandle = pointsOfPolygon[0];
+            listOfOrderedPoints.Add(pointToHandle);
+            // while (listOfOrderedPoints.Count != numberOfVertices)
+            while (k != 10)
+            {
+                k++;
+                pointToAdd = pointsOfPolygon[closestNeighborsIndexArr[i]];
+                if(!listOfOrderedPoints.Contains(pointToAdd))
+                {
+                    listOfOrderedPoints.Add(pointToAdd);
+                    
+                } else
+                {
+                    pointToAdd = pointsOfPolygon[closestNeighborsIndexArr[++i]];
+                    //if (!listOfOrderedPoints.Contains(pointToAdd))
+                    //{
+                        listOfOrderedPoints.Add(pointToAdd);
+                    //}
+                }
+                
+                i = closestNeighborsIndexArr[i] * 2;
+            }
+            
+
+            i = 0;
+            Point3D[] trianglePoint;
+            List<Point3D[]> trianglesList = new List<Point3D[]>();
+            for (i = 2; i < numberOfVertices; i++)
+            {
+                trianglePoint = new Point3D[3];
+                trianglePoint[0] = listOfOrderedPoints[0];
+                trianglePoint[1] = listOfOrderedPoints[i-1];
+                trianglePoint[2] = listOfOrderedPoints[i];
+                // planeTrianglesList.Add(trianglePoint);
+            }
+
+
+            return trianglesList;
+        }
+
+        public int findClosestPoint(Point3D point, ref Dictionary<int, Point3D> pointsToCompare)
+        {
+            int closestVertexId = 0;
+            double distance = 0;
+            double minDistance = 100000;
+            double dx, dy, dz;
+            Point3D pointToCompare;
+
+            var keys = pointsToCompare.Keys;
+
+            // The Dictionary does not contain the point that we wish to find the closest 
+            // point of:
+            foreach (int vertex in keys)
+            {
+                pointToCompare = pointsToCompare[vertex];
+                distance = 0;
+                dx = point.X - pointToCompare.X;
+                dy = point.Y - pointToCompare.Y;
+                dz = point.Z - pointToCompare.Z;
+
+                distance = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestVertexId = vertex;
+                }
+            }
+
+            return closestVertexId;
+        }
+
+        public void convertPolygonIntoTriangles3(Dictionary<int, Point3D> pointsOfPolygon, int numberOfVertices,
+           ref int triangleIndex, string cubeIndex)
+        {
+            int[] trianglePoints;
+            Point3D point, closestPoint, secondClosestPoint;
+            int i = 0, vertexId, closestVertexId, secondClosestVertexId;
+            Dictionary<int, int[]> cubeTriangles = new Dictionary<int, int[]>();
+
+            if (numberOfVertices == 3)
+            {
+                trianglePoints = new int[3];
+
+                foreach (int p in pointsOfPolygon.Keys)
+                {
+                    trianglePoints[i] = p;
+                    i++;
+                }
+
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+            }
+            else if (numberOfVertices == 4)
+            {
+                /* How about finding the farthest point?*/
+
+                // Get any key:
+                vertexId = pointsOfPolygon.Keys.First();
+                point = pointsOfPolygon[vertexId];
+
+                // Remove that key from the dictionary:
+                pointsOfPolygon.Remove(vertexId);
+
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Find the second closest point to the main point:
+                int fourthPointId = findClosestPoint(point, ref pointsOfPolygon);
+                Point3D fourthPoint = pointsOfPolygon[fourthPointId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(fourthPointId);
+
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(secondClosestVertexId);
+
+                // Make the first triangle:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = closestVertexId;
+                trianglePoints[2] = secondClosestVertexId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+
+                // Make a triangle with the fourth and last point:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = secondClosestVertexId;
+                trianglePoints[2] = fourthPointId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+            }
+            else if (numberOfVertices == 5)
+            {
+                // Get any key:
+                vertexId = pointsOfPolygon.Keys.First();
+                point = pointsOfPolygon[vertexId];
+
+                // Remove that key from the dictionary:
+                pointsOfPolygon.Remove(vertexId);
+
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(secondClosestVertexId);
+
+                // Make the first triangle:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = closestVertexId;
+                trianglePoints[2] = secondClosestVertexId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+
+                // Save the second closest point for later triangle:
+                int prevSecondClosestVertexId = secondClosestVertexId;
+                Point3D prevSecondClosestPoint = new Point3D(secondClosestPoint.X, secondClosestPoint.Y,
+                                                            secondClosestPoint.Z);
+
+                // Find the next set of closest points:
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Maybe we dont need to calculate for this point because it would be the last
+                // point in the dictionary?
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Make the second triangle:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = closestVertexId;
+                trianglePoints[2] = secondClosestVertexId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+
+                // Make the third triangle:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = prevSecondClosestVertexId;
+                trianglePoints[2] = secondClosestVertexId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+            }
+            else if (numberOfVertices == 6)
+            {
+                // Get any key:
+                vertexId = pointsOfPolygon.Keys.First();
+                point = pointsOfPolygon[vertexId];
+
+                // Remove that key from the dictionary:
+                pointsOfPolygon.Remove(vertexId);
+
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(secondClosestVertexId);
+
+                // Make the first triangle:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = closestVertexId;
+                trianglePoints[2] = secondClosestVertexId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+
+
+                // Save the second closest point for later triangle:
+                int prevSecondClosestVertexId = secondClosestVertexId;
+                Point3D prevSecondClosestPoint = new Point3D(secondClosestPoint.X, secondClosestPoint.Y,
+                                                            secondClosestPoint.Z);
+
+                // Find the next set of closest points:
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(secondClosestVertexId);
+
+                // Make the second triangle:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = closestVertexId;
+                trianglePoints[2] = secondClosestVertexId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+
+                // Get last point:
+                int lastPointVertexId = pointsOfPolygon.Keys.First();
+                Point3D lastPoint = pointsOfPolygon[pointsOfPolygon.Keys.First()];
+
+                // Make the third triangle:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = secondClosestVertexId;
+                trianglePoints[2] = lastPointVertexId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+
+                // Make the fourth triangle:
+                trianglePoints = new int[3];
+                trianglePoints[0] = vertexId;
+                trianglePoints[1] = prevSecondClosestVertexId;
+                trianglePoints[2] = lastPointVertexId;
+                cubeTriangles.Add(triangleIndex, trianglePoints);
+                planeTrianglesIndicesList.Add(triangleIndex++, trianglePoints);
+            }
+
+            cubeTrianglesIndicesList.Add(cubeIndex, cubeTriangles);
+        }
+
+
+
+        public void convertPolygonIntoTriangles2(Dictionary<int, Point3D> pointsOfPolygon, int numberOfVertices,
+            ref int triangleIndex, string cubeIndex)
+        {
+            Point3D[] trianglePoints;
+            Point3D point, closestPoint, secondClosestPoint;
+            int i = 0, vertexId, closestVertexId, secondClosestVertexId;
+
+            if (numberOfVertices == 3)
+            {
+                trianglePoints = new Point3D[3];
+
+                foreach (Point3D p in pointsOfPolygon.Values)
+                {
+                    trianglePoints[i] = p;
+                    i++;
+                }
+
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+            } else if (numberOfVertices == 4)
+            {
+                /* How about finding the farthest point?*/
+
+                // Get any key:
+                vertexId = pointsOfPolygon.Keys.First();
+                point = pointsOfPolygon[vertexId];
+
+                // Remove that key from the dictionary:
+                pointsOfPolygon.Remove(vertexId);
+
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Find the second closest point to the main point:
+                int fourthPointId = findClosestPoint(point, ref pointsOfPolygon);
+                Point3D fourthPoint = pointsOfPolygon[fourthPointId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(fourthPointId);
+
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(secondClosestVertexId);
+
+                // Make the first triangle:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = closestPoint;
+                trianglePoints[2] = secondClosestPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+
+                // Make a triangle with the fourth and last point:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = secondClosestPoint;
+                trianglePoints[2] = fourthPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+            } else if(numberOfVertices == 5)
+            {
+                // Get any key:
+                vertexId = pointsOfPolygon.Keys.First();
+                point = pointsOfPolygon[vertexId];
+
+                // Remove that key from the dictionary:
+                pointsOfPolygon.Remove(vertexId);
+
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(secondClosestVertexId);
+
+                // Make the first triangle:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = closestPoint;
+                trianglePoints[2] = secondClosestPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+
+                // Save the second closest point for later triangle:
+                Point3D prevSecondClosestPoint = new Point3D(secondClosestPoint.X, secondClosestPoint.Y,
+                                                            secondClosestPoint.Z);
+
+                // Find the next set of closest points:
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Maybe we dont need to calculate for this point because it would be the last
+                // point in the dictionary?
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Make the second triangle:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = closestPoint;
+                trianglePoints[2] = secondClosestPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+
+                // Make the third triangle:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = prevSecondClosestPoint;
+                trianglePoints[2] = secondClosestPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+            }
+            else if (numberOfVertices == 6)
+            {
+                // Get any key:
+                vertexId = pointsOfPolygon.Keys.First();
+                point = pointsOfPolygon[vertexId];
+
+                // Remove that key from the dictionary:
+                pointsOfPolygon.Remove(vertexId);
+
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(secondClosestVertexId);
+
+                // Make the first triangle:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = closestPoint;
+                trianglePoints[2] = secondClosestPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+
+                // Save the second closest point for later triangle:
+                Point3D prevSecondClosestPoint = new Point3D(secondClosestPoint.X, secondClosestPoint.Y,
+                                                            secondClosestPoint.Z);
+
+                // Find the next set of closest points:
+                // Find closest vertex:
+                closestVertexId = findClosestPoint(point, ref pointsOfPolygon);
+                closestPoint = pointsOfPolygon[closestVertexId];
+
+                // Remove the closest point:
+                pointsOfPolygon.Remove(closestVertexId);
+                
+                // Find second closest vertex:
+                secondClosestVertexId = findClosestPoint(closestPoint, ref pointsOfPolygon);
+                secondClosestPoint = pointsOfPolygon[secondClosestVertexId];
+
+                // Remove the second closest point:
+                pointsOfPolygon.Remove(secondClosestVertexId);
+
+                // Make the second triangle:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = closestPoint;
+                trianglePoints[2] = secondClosestPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+                
+                // Get last point:
+                Point3D lastPoint = pointsOfPolygon[pointsOfPolygon.Keys.First()];
+
+                // Make the third triangle:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = secondClosestPoint;
+                trianglePoints[2] = lastPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+
+                // Make the fourth triangle:
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = point;
+                trianglePoints[1] = prevSecondClosestPoint;
+                trianglePoints[2] = lastPoint;
+                cubeTriangles[cubeIndex].Add(triangleIndex, trianglePoints);
+                planeTrianglesList.Add(triangleIndex++, trianglePoints);
+            }
+        }
+
+
+        /*
+        public void createPlaneTriangles(List<Point3D> intersections, int numberOfIntersections)
+        {
+            Point3D[] trianglePoints;
+
+            if (numberOfIntersections == 0)
+            {
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = new Point3D(10, 10, 10);
+                trianglePoints[1] = new Point3D(1, 10, 10);
+                trianglePoints[2] = new Point3D(10, 1, 10);
+
+                planeTrianglesList.Add(trianglePoints);
+            }
+
+            if (numberOfIntersections == 3)
+            {
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[1];
+                trianglePoints[2] = intersections[2];
+
+                planeTrianglesList.Add(trianglePoints);
+            }
+            else if (numberOfIntersections == 4)
+            {
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[1];
+                trianglePoints[2] = intersections[2];
+
+                planeTrianglesList.Add(trianglePoints);
+
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[2];
+                trianglePoints[2] = intersections[3];
+
+                planeTrianglesList.Add(trianglePoints);
+            }
+            else if (numberOfIntersections == 5)
+            {
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[1];
+                trianglePoints[2] = intersections[2];
+
+                planeTrianglesList.Add(trianglePoints);
+
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[2];
+                trianglePoints[2] = intersections[3];
+
+                planeTrianglesList.Add(trianglePoints);
+
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[3];
+                trianglePoints[2] = intersections[4];
+
+                planeTrianglesList.Add(trianglePoints);
+            }
+            else if (numberOfIntersections == 6)
+            {
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[1];
+                trianglePoints[2] = intersections[2];
+
+                planeTrianglesList.Add(trianglePoints);
+
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[2];
+                trianglePoints[2] = intersections[3];
+
+                planeTrianglesList.Add(trianglePoints);
+
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[3];
+                trianglePoints[2] = intersections[4];
+
+                planeTrianglesList.Add(trianglePoints);
+
+                trianglePoints = new Point3D[3];
+                trianglePoints[0] = intersections[0];
+                trianglePoints[1] = intersections[4];
+                trianglePoints[2] = intersections[5];
+
+                planeTrianglesList.Add(trianglePoints);
+            }
+        }
+        */
+
+
+        private int findClosestTriangleVertex(Point3D[] pointArr, Point3D point)
+        {
+            double distance1, distance2, distance3;
+            double X, Y, Z;
+
+            X = point.X - pointArr[0].X;
+            Y = point.Y - pointArr[0].Y;
+            Z = point.Z - pointArr[0].Z;
+
+            distance1 = Math.Sqrt(X * X + Y * Y + Z * Z);
+
+            X = point.X - pointArr[1].X;
+            Y = point.Y - pointArr[1].Y;
+            Z = point.Z - pointArr[1].Z;
+
+            distance2 = Math.Sqrt(X * X + Y * Y + Z * Z);
+
+            X = point.X - pointArr[2].X;
+            Y = point.Y - pointArr[2].Y;
+            Z = point.Z - pointArr[2].Z;
+
+            distance3 = Math.Sqrt(X * X + Y * Y + Z * Z);
+
+            if (distance1 < distance2 && distance1 < distance3)
+            {
+                return 0;
+            }
+            else
+            {
+                if (distance2 < distance3)
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 2;
+                }
+            }
+        }
+
+        private Point3D mergeTwoPoints(Point3D point1, Point3D point2)
+        {
+            Point3D mergedPoint = new Point3D();
+            double X, Y, Z;
+
+            X = (point1.X - point2.X) / 2;
+            Y = (point1.Y - point2.Y) / 2;
+            Z = (point1.Z - point2.Z) / 2;
+
+            mergedPoint = new Point3D(point2.X + X, point2.Y + Y, point2.Z + Z);
+
+            return mergedPoint;
+        }
+
+        /// <summary>
+        /// Extract vertices and triangles from their designated files.
+        /// </summary>
+        /// <param name="triangles"></param>
+        /// <param name="vertices"></param>
+        public void extractMeshDataFromFiles()
+        {
+            //string path = "D:/Solar Project/triangle_scope.txt";
+            //string path = "D:/Solar Project/XBOX ONE/MESA 3D/Extras/teapotTriangles.txt";
+            //string path = "D:/Solar Project/XBOX ONE/MESA 3D/Extras/hTsphereTriangles.txt";
+            string path = "D:/MESA Lab/MESA 3D/Extras/surface2Triangles.txt";
+            string line;
+
+            System.IO.StreamReader file =
+            new System.IO.StreamReader(path);
+            while ((line = file.ReadLine()) != null)
+            {
+                triangles.Add(line);
+            }
+
+            file.Close();
+
+            //path = "D:/Solar Project/vertex_scope.txt";
+            //path = "D:/Solar Project/XBOX ONE/MESA 3D/Extras/teapotVertices.txt";
+            //path = "D:/Solar Project/XBOX ONE/MESA 3D/Extras/hTsphereVertices.txt";
+            path = "D:/MESA Lab/MESA 3D/Extras/surface2Vertices.txt";
+            System.IO.StreamReader file2 =
+            new System.IO.StreamReader(path);
+            while ((line = file2.ReadLine()) != null)
+            {
+                vertices.Add(line);
+            }
+
+            file2.Close();
+        }
+
+    }
+}

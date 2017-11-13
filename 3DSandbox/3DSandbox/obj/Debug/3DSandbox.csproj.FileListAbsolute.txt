@@ -1,0 +1,94 @@
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\3DSandbox.exe.config
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\3DSandbox.exe
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\3DSandbox.pdb
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Microsoft.Kinect.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Microsoft.Kinect.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\MainWindow.g.cs
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\App.g.cs
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox_MarkupCompile.cache
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox_MarkupCompile.lref
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\MainWindow.baml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.g.resources
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\_3DSandbox.Properties.Resources.resources
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.csproj.GenerateResource.Cache
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.exe
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.pdb
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.csprojResolveAssemblyReference.cache
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.dll.config
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Controls.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Imaging.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.MachineLearning.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Math.Core.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Math.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Statistics.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\ZedGraph.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Controls.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Imaging.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.MachineLearning.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Math.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Math.Core.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Statistics.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\ZedGraph.xml
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\de\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\es\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\fr\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\hu\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\it\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\ja\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\pt\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\ru\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\sk\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\sv\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\tr\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\zh-cn\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\bin\Debug\zh-tw\ZedGraph.resources.dll
+D:\Solar Project\XBOX ONE\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox_Content.g.cs
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.dll.config
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\3DSandbox.exe.config
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\3DSandbox.exe
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\3DSandbox.pdb
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Controls.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Imaging.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.MachineLearning.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Math.Core.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Math.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Statistics.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Microsoft.Kinect.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\ZedGraph.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Controls.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Imaging.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.MachineLearning.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Math.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Math.Core.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Accord.Statistics.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\Microsoft.Kinect.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\ZedGraph.xml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\de\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\es\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\fr\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\hu\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\it\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\ja\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\pt\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\ru\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\sk\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\sv\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\tr\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\zh-cn\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\bin\Debug\zh-tw\ZedGraph.resources.dll
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.csprojResolveAssemblyReference.cache
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\MainWindow.g.cs
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\App.g.cs
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox_Content.g.cs
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox_MarkupCompile.cache
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox_MarkupCompile.lref
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\MainWindow.baml
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.g.resources
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\_3DSandbox.Properties.Resources.resources
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.csproj.GenerateResource.Cache
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.exe
+D:\MESA Lab\MESA 3D\3DSandbox\3DSandbox\obj\Debug\3DSandbox.pdb
